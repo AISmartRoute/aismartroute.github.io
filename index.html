@@ -416,9 +416,7 @@ function drawRoute(from, to) {
             serviceUrl: "https://router.project-osrm.org/route/v1"
         }),
         lineOptions: {
-            styles: [
-                { color: "#7c3aed", opacity: 0.9, weight: 6 }
-            ]
+            styles: [{ color: "#7c3aed", opacity: 0.9, weight: 6 }]
         },
         addWaypoints: false,
         draggableWaypoints: false,
@@ -426,46 +424,50 @@ function drawRoute(from, to) {
         show: false,
         createMarker: () => null
     })
+
     .on("routesfound", function (e) {
         const route = e.routes[0];
 
-        // ===== DATA DASAR DARI OSRM =====
+        /* ===============================
+           DATA DASAR
+        =============================== */
         const distanceKm = (route.summary.totalDistance / 1000).toFixed(2);
-        const normalDuration = route.summary.totalTime; // detik
+        const normalDuration = route.summary.totalTime;
 
-        // ===== ESTIMASI JAM SIBUK =====
+        /* ===============================
+           JAM SIBUK (HEURISTIC)
+        =============================== */
         const rush = isRushHour();
         const multiplier = rush ? 1.6 : 1.0;
-        const rushDuration = normalDuration * multiplier;
+        const finalDuration = normalDuration * multiplier;
 
-        // ===== PETUNJUK JALAN =====
-        const instructionsText = formatInstructions(route.instructions);
+        /* ===============================
+           AI STEP PROCESSING
+        =============================== */
+        const steps = route.instructions || [];
+        const groupedSteps = groupRouteSteps(steps);
 
+        const aiNarration = narrateRouteAI(
+            from,
+            to,
+            groupedSteps,
+            rush
+        );
+
+        /* ===============================
+           OUTPUT KE CHAT
+        =============================== */
         addChatMessage(
-`🧭 Rute Jalan (AI Routing)
+`🤖 AI Ringkasan Rute
 
-Dari:
-${from.nama}
+${aiNarration}
 
-Ke:
-${to.nama}
-
-📏 Jarak:
-${distanceKm} km
-
-⏱️ Estimasi Jam Biasa:
-${formatDuration(normalDuration)}
-
-🚦 Estimasi Jam Sibuk:
-${formatDuration(rushDuration)}
-
-🛣️ Petunjuk Jalan:
-${instructionsText}
-
-${rush ? "⚠️ Saat ini jam sibuk, estimasi disesuaikan." : "✅ Lalu lintas relatif normal."}`,
+📏 Jarak: ${distanceKm} km
+⏱️ Estimasi ${rush ? "Jam Sibuk" : "Normal"}: ${formatDuration(finalDuration)}`,
             "ai"
         );
     })
+
     .on("routingerror", function (err) {
         console.error(err);
         addChatMessage(
@@ -473,9 +475,9 @@ ${rush ? "⚠️ Saat ini jam sibuk, estimasi disesuaikan." : "✅ Lalu lintas r
             "ai"
         );
     })
+
     .addTo(map);
 }
-
 
 /* =====================================================
   ARAH JALAN
@@ -522,6 +524,74 @@ function formatDuration(seconds) {
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
     return `${h} jam ${m} menit`;
+}
+/* =====================================================
+   AI STEP PROCESSOR (NEXT LEVEL)
+===================================================== */
+
+// step kecil & lurus = noise
+function isNoiseStep(step) {
+    return step.distance < 30 &&
+        ["straight", "slightLeft", "slightRight"].includes(step.type);
+}
+
+// normalisasi label jalan (AMAN, BUKAN NGARANG)
+function normalizeRoadLabel(step) {
+    if (step.road && step.road.trim() !== "") return step.road;
+    if (step.ref && step.ref.trim() !== "") return `jalan ${step.ref}`;
+    if (step.type === "roundabout") return "bundaran";
+    return "jalan lokal";
+}
+
+// gabungkan step kecil jadi segmen besar
+function groupRouteSteps(steps) {
+    const groups = [];
+    let current = null;
+
+    steps.forEach(step => {
+        if (isNoiseStep(step)) return;
+
+        const road = normalizeRoadLabel(step);
+
+        if (!current || current.road !== road) {
+            current = {
+                road,
+                distance: step.distance
+            };
+            groups.push(current);
+        } else {
+            current.distance += step.distance;
+        }
+    });
+
+    return groups;
+}
+function rushContextText(isRush) {
+    return isRush
+        ? "Saat ini jam sibuk, kemungkinan terjadi kepadatan di jalan utama."
+        : "Lalu lintas diperkirakan relatif lancar.";
+}
+
+function narrateRouteAI(from, to, groups, isRush) {
+    const parts = [];
+
+    parts.push(`Dari ${from.nama},`);
+
+    groups.forEach((g, i) => {
+        const km = (g.distance / 1000).toFixed(1);
+
+        if (i === 0) {
+            parts.push(`ikuti ${g.road} sekitar ${km} km`);
+        } else if (i === groups.length - 1) {
+            parts.push(`lalu masuk ke ${g.road} menuju ${to.nama}`);
+        } else {
+            parts.push(`lanjut di ${g.road} ±${km} km`);
+        }
+    });
+
+    parts.push(rushContextText(isRush));
+
+    return parts.join(", ") + ".";
 }
 
 /* =====================================================
