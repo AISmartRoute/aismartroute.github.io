@@ -398,6 +398,11 @@ async function loadOutletGeoJSON() {
    ROUTING JALAN NYATA (OPS I)
 ===================================================== */
 function drawRoute(from, to) {
+    if (!L.Routing) {
+        console.error("Leaflet Routing Machine belum termuat");
+        return;
+    }
+
     if (routingControl) {
         map.removeControl(routingControl);
     }
@@ -411,30 +416,66 @@ function drawRoute(from, to) {
             serviceUrl: "https://router.project-osrm.org/route/v1"
         }),
         lineOptions: {
-            styles: [{ color: "#7c3aed", weight: 6, opacity: 0.9 }]
+            styles: [
+                { color: "#7c3aed", opacity: 0.9, weight: 6 }
+            ]
         },
         addWaypoints: false,
         draggableWaypoints: false,
+        fitSelectedRoutes: true,
         show: false,
         createMarker: () => null
     })
     .on("routesfound", function (e) {
         const route = e.routes[0];
-        const steps = route.instructions;
 
-        const textSteps = formatInstructions(steps);
+        // ===== DATA DASAR DARI OSRM =====
+        const distanceKm = (route.summary.totalDistance / 1000).toFixed(2);
+        const normalDuration = route.summary.totalTime; // detik
+
+        // ===== ESTIMASI JAM SIBUK =====
+        const rush = isRushHour();
+        const multiplier = rush ? 1.6 : 1.0;
+        const rushDuration = normalDuration * multiplier;
+
+        // ===== PETUNJUK JALAN =====
+        const instructionsText = formatInstructions(route.instructions);
 
         addChatMessage(
-`🧭 Petunjuk Arah Jalan
+`🧭 Rute Jalan (AI Routing)
 
-Dari: ${from.nama}
-Ke: ${to.nama}
+Dari:
+${from.nama}
 
-${textSteps}`,
-        "ai");
+Ke:
+${to.nama}
+
+📏 Jarak:
+${distanceKm} km
+
+⏱️ Estimasi Jam Biasa:
+${formatDuration(normalDuration)}
+
+🚦 Estimasi Jam Sibuk:
+${formatDuration(rushDuration)}
+
+🛣️ Petunjuk Jalan:
+${instructionsText}
+
+${rush ? "⚠️ Saat ini jam sibuk, estimasi disesuaikan." : "✅ Lalu lintas relatif normal."}`,
+            "ai"
+        );
+    })
+    .on("routingerror", function (err) {
+        console.error(err);
+        addChatMessage(
+            "❌ Gagal menghitung rute jalan. Silakan coba lokasi lain.",
+            "ai"
+        );
     })
     .addTo(map);
 }
+
 
 /* =====================================================
   ARAH JALAN
@@ -459,6 +500,28 @@ ${textSteps}`,
 
         return `${i + 1}. ${action} ke ${road} (${distance} m)`;
     }).join("\n");
+}
+/* =====================================================
+   ESTIMASI WAKTU
+===================================================== */
+ function isRushHour() {
+    const now = new Date();
+    const hour = now.getHours();
+    const minute = now.getMinutes();
+    const time = hour + minute / 60;
+
+    return (
+        (time >= 7 && time <= 9) ||
+        (time >= 16.5 && time <= 19)
+    );
+}
+
+function formatDuration(seconds) {
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) return `${minutes} menit`;
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return `${h} jam ${m} menit`;
 }
 
 /* =====================================================
