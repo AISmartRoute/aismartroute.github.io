@@ -503,53 +503,72 @@ Menampilkan jalur terdekat yang memungkinkan.`,
 /* =====================================================
   ARAH JALAN
 ===================================================== */
-function formatInstructions(steps) {
-    if (!steps || steps.length === 0) {
+function formatInstructions(instructions) {
+    if (!instructions || instructions.length === 0) {
         return "Petunjuk jalan tidak tersedia.";
     }
 
-    const results = [];
-    let lastRoad = null;
+    const cleaned = [];
+    let bufferDistance = 0;
 
-    steps.forEach(step => {
-        const maneuver = step.maneuver || {};
-        const type = maneuver.type || "";
-        const modifier = maneuver.modifier || "";
-        const road = step.name || "jalan tanpa nama";
+    instructions.forEach(step => {
+        const text = step.text.toLowerCase();
+        const road = step.road || "";
+        const dist = step.distance || 0;
 
-        // Awal jalan
-        if (!lastRoad && road) {
-            results.push(`Dari ${road}`);
-            lastRoad = road;
-            return;
-        }
-
-        // Belok kiri
-        if (modifier === "left" && road !== lastRoad) {
-            results.push(`Belok kiri ke ${road}`);
-            lastRoad = road;
-            return;
-        }
-
-        // Belok kanan
-        if (modifier === "right" && road !== lastRoad) {
-            results.push(`Belok kanan ke ${road}`);
-            lastRoad = road;
-            return;
-        }
-
-        // Lurus ganti jalan
+        // Gabungkan "lanjut ke jalan tanpa nama"
         if (
-            (type === "continue" || type === "new name") &&
-            road !== lastRoad
+            text.includes("lanjut") &&
+            (!road || road.toLowerCase().includes("tanpa nama"))
         ) {
-            results.push(`Lanjut ke ${road}`);
-            lastRoad = road;
+            bufferDistance += dist;
+            return;
+        }
+
+        // Flush buffer jika ada
+        if (bufferDistance > 0) {
+            cleaned.push(
+                `Lurus ±${(bufferDistance / 1000).toFixed(1)} km`
+            );
+            bufferDistance = 0;
+        }
+
+        // Belok kiri / kanan
+        if (text.includes("kiri")) {
+            cleaned.push(
+                `Belok kiri ke ${road || "jalan utama"}`
+            );
+            return;
+        }
+
+        if (text.includes("kanan")) {
+            cleaned.push(
+                `Belok kanan ke ${road || "jalan utama"}`
+            );
+            return;
+        }
+
+        // Masuk jalan bernama
+        if (road) {
+            cleaned.push(
+                `Ikuti ${road} ±${Math.round(dist)} m`
+            );
         }
     });
 
-    // Batasi biar rapi
-    return results.slice(0, 6).map((s, i) => `${i + 1}. ${s}`).join("\n");
+    // Flush sisa buffer
+    if (bufferDistance > 0) {
+        cleaned.push(
+            `Lurus ±${(bufferDistance / 1000).toFixed(1)} km`
+        );
+    }
+
+    // Potong max 8 langkah (biar ga kepanjangan)
+    const limited = cleaned.slice(0, 8);
+
+    return limited
+        .map((s, i) => `${i + 1}. ${s}`)
+        .join("\n");
 }
 
 /* =====================================================
