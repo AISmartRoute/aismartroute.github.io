@@ -302,538 +302,212 @@
    </div>
   </div>
   <script>
-        // Configuration
-        const defaultConfig = {
-            dashboard_title: "POS SmartRouting AI Dashboard",
-            default_location: "Jakarta Barat",
-            chat_welcome: "Tanya saya tentang rute tercepat!",
-            primary_color: "#667eea",
-            secondary_color: "#764ba2",
-            background_color: "#f9fafb",
-            text_color: "#1f2937",
-            accent_color: "#10b981"
-        };
+<script>
+/* =====================================================
+   GLOBAL CONFIG & STATE
+===================================================== */
+const defaultConfig = {
+    dashboard_title: "POS SmartRouting AI Dashboard",
+    default_location: "Kab. Pekalongan",
+    chat_welcome: "Tanya saya tentang rute tercepat!"
+};
 
-        let map;
-        let markers = [];
-        let allData = [];
+let map;
+let markers = [];
+let allData = [];
 
-        // Initialize map
-        function initMap() {
-            map = L.map('map').setView([-6.1615, 106.7946], 13);
-            
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
-            }).addTo(map);
-        }
+/* =====================================================
+   MAP FUNCTIONS
+===================================================== */
+function initMap() {
+    map = L.map("map").setView([-7.02, 109.62], 10);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap contributors"
+    }).addTo(map);
+}
 
-        // Update map markers
-        function updateMapMarkers() {
-            markers.forEach(marker => map.removeLayer(marker));
-            markers = [];
+function updateMapMarkers() {
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
 
-            const offices = allData.filter(item => item.type === 'office');
-            const vehicles = allData.filter(item => item.type === 'vehicle');
+    allData.filter(d => d.type === "office").forEach(o => {
+        const marker = L.marker([o.latitude, o.longitude]).addTo(map);
+        marker.bindPopup(`
+            <strong>${o.nama}</strong><br>
+            ${o.alamat}<br>
+            <small>${o.kelurahan}</small>
+        `);
+        markers.push(marker);
+    });
+}
 
-            offices.forEach(office => {
-                const marker = L.marker([office.latitude, office.longitude], {
-                    icon: L.divIcon({
-                        className: 'custom-marker',
-                        html: `<div style="background: #667eea; color: white; padding: 8px; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">📮</div>`,
-                        iconSize: [40, 40]
-                    })
-                }).addTo(map);
-                
-                marker.bindPopup(`
-                    <strong>${office.nama}</strong><br>
-                    Kode Pos: ${office.kode_pos}<br>
-                    ${office.alamat}
-                `);
-                
-                markers.push(marker);
-            });
-
-            vehicles.forEach(vehicle => {
-                const statusColors = {
-                    'On Trip': '#10b981',
-                    'Idle': '#fbbf24',
-                    'Maintenance': '#ef4444'
-                };
-                
-                const marker = L.marker([vehicle.latitude, vehicle.longitude], {
-                    icon: L.divIcon({
-                        className: 'custom-marker',
-                        html: `<div style="background: ${statusColors[vehicle.status]}; color: white; padding: 8px; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">🚚</div>`,
-                        iconSize: [40, 40]
-                    })
-                }).addTo(map);
-                
-                marker.bindPopup(`
-                    <strong>${vehicle.plat_nomor}</strong><br>
-                    Driver: ${vehicle.driver_name}<br>
-                    Status: ${vehicle.status}<br>
-                    ${vehicle.destination ? `Tujuan: ${vehicle.destination}` : ''}
-                `);
-                
-                markers.push(marker);
-            });
-        }
-
-        // Render offices list
-        function renderOfficesList() {
-            const container = document.getElementById('offices-list');
-            const offices = allData.filter(item => item.type === 'office');
-            
-            if (offices.length === 0) {
-                container.innerHTML = '<p class="text-gray-500 text-center py-8">Belum ada kantor pos. Klik "Tambah Kantor" untuk menambahkan.</p>';
-                return;
-            }
-
-            container.innerHTML = offices.map(office => `
-                <div class="border border-gray-200 rounded-lg p-4 hover:border-purple-300 transition-colors">
-                    <div class="flex justify-between items-start">
-                        <div class="flex-1">
-                            <h4 class="font-bold text-gray-800">${office.nama}</h4>
-                            <p class="text-sm text-gray-600 mt-1">${office.alamat}</p>
-                            <div class="flex gap-2 mt-2">
-                                <span class="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">📮 ${office.kode_pos}</span>
-                                <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">📍 ${office.latitude.toFixed(4)}, ${office.longitude.toFixed(4)}</span>
-                            </div>
-                        </div>
-                        <button onclick="deleteItem('${office.id}')" class="text-red-500 hover:text-red-700 ml-2">
-                            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        // Render vehicles list
-        function renderVehiclesList() {
-            const container = document.getElementById('vehicles-list');
-            const vehicles = allData.filter(item => item.type === 'vehicle');
-            
-            if (vehicles.length === 0) {
-                container.innerHTML = '<p class="text-gray-500 text-center py-8">Belum ada kendaraan. Klik "Tambah Kendaraan" untuk menambahkan.</p>';
-                return;
-            }
-
-            container.innerHTML = vehicles.map(vehicle => `
-                <div class="border border-gray-200 rounded-lg p-4 hover:border-purple-300 transition-colors">
-                    <div class="flex justify-between items-start">
-                        <div class="flex-1">
-                            <div class="flex items-center gap-2 mb-2">
-                                <h4 class="font-bold text-gray-800">${vehicle.plat_nomor}</h4>
-                                <span class="status-badge status-${vehicle.status.toLowerCase().replace(' ', '-')}">${vehicle.status}</span>
-                            </div>
-                            <p class="text-sm text-gray-600">👤 ${vehicle.driver_name}</p>
-                            ${vehicle.destination ? `<p class="text-sm text-gray-600 mt-1">📍 ${vehicle.destination}</p>` : ''}
-                            ${vehicle.eta ? `<p class="text-sm text-gray-600">⏱️ ETA: ${vehicle.eta}</p>` : ''}
-                            <p class="text-xs text-gray-500 mt-2">Lokasi: ${vehicle.latitude.toFixed(4)}, ${vehicle.longitude.toFixed(4)}</p>
-                        </div>
-                        <button onclick="deleteItem('${vehicle.id}')" class="text-red-500 hover:text-red-700 ml-2">
-                            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        // Switch tabs
-        function switchTab(tab) {
-            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-            event.target.closest('.tab-button').classList.add('active');
-            
-            document.getElementById('offices-tab').classList.toggle('hidden', tab !== 'offices');
-            document.getElementById('vehicles-tab').classList.toggle('hidden', tab !== 'vehicles');
-        }
-
-        // Modal functions
-        function showAddOfficeModal() {
-            document.getElementById('office-modal').classList.remove('hidden');
-        }
-
-        function closeOfficeModal() {
-            document.getElementById('office-modal').classList.add('hidden');
-            document.getElementById('office-form').reset();
-        }
-
-        function showAddVehicleModal() {
-            document.getElementById('vehicle-modal').classList.remove('hidden');
-        }
-
-        function closeVehicleModal() {
-            document.getElementById('vehicle-modal').classList.add('hidden');
-            document.getElementById('vehicle-form').reset();
-        }
-
-        // Add office
-        document.getElementById('office-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const submitBtn = document.getElementById('office-submit');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="loading-spinner"></span>';
-
-            if (allData.filter(item => item.type === 'office').length >= 999) {
-                alert('Maksimum 999 kantor pos tercapai. Hapus beberapa data terlebih dahulu.');
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = 'Simpan';
-                return;
-            }
-
-            const officeData = {
-                id: Date.now().toString(),
-                type: 'office',
-                nama: document.getElementById('office-nama').value,
-                kode_pos: document.getElementById('office-kode').value,
-                alamat: document.getElementById('office-alamat').value,
-                latitude: parseFloat(document.getElementById('office-lat').value),
-                longitude: parseFloat(document.getElementById('office-lng').value),
-                plat_nomor: '',
-                driver_name: '',
-                status: '',
-                destination: '',
-                eta: '',
-                timestamp: new Date().toISOString()
-            };
-
-            const result = await window.dataSdk.create(officeData);
-            
-            if (result.isOk) {
-                closeOfficeModal();
-            } else {
-                alert('Gagal menambahkan kantor pos. Silakan coba lagi.');
-            }
-            
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = 'Simpan';
-        });
-
-        // Add vehicle
-        document.getElementById('vehicle-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const submitBtn = document.getElementById('vehicle-submit');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="loading-spinner"></span>';
-
-            if (allData.filter(item => item.type === 'vehicle').length >= 999) {
-                alert('Maksimum 999 kendaraan tercapai. Hapus beberapa data terlebih dahulu.');
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = 'Simpan';
-                return;
-            }
-
-            const vehicleData = {
-                id: Date.now().toString(),
-                type: 'vehicle',
-                plat_nomor: document.getElementById('vehicle-plat').value,
-                driver_name: document.getElementById('vehicle-driver').value,
-                status: document.getElementById('vehicle-status').value,
-                destination: document.getElementById('vehicle-destination').value,
-                eta: document.getElementById('vehicle-eta').value,
-                latitude: parseFloat(document.getElementById('vehicle-lat').value),
-                longitude: parseFloat(document.getElementById('vehicle-lng').value),
-                nama: '',
-                kode_pos: '',
-                alamat: '',
-                timestamp: new Date().toISOString()
-            };
-
-            const result = await window.dataSdk.create(vehicleData);
-            
-            if (result.isOk) {
-                closeVehicleModal();
-            } else {
-                alert('Gagal menambahkan kendaraan. Silakan coba lagi.');
-            }
-            
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = 'Simpan';
-        });
-
-        // Delete item
-        async function deleteItem(id) {
-            const item = allData.find(d => d.id === id);
-            if (!item) return;
-
-            const confirmDiv = document.createElement('div');
-            confirmDiv.className = 'modal-overlay';
-            confirmDiv.innerHTML = `
-                <div class="modal-content text-center">
-                    <h3 class="text-xl font-bold mb-4">Konfirmasi Hapus</h3>
-                    <p class="text-gray-600 mb-6">Yakin ingin menghapus data ini?</p>
-                    <div class="flex gap-2 justify-center">
-                        <button id="confirm-delete" class="btn-primary" style="background: #ef4444;">Hapus</button>
-                        <button id="cancel-delete" class="btn-primary" style="background: #6b7280;">Batal</button>
-                    </div>
-                </div>
-            `;
-            document.body.appendChild(confirmDiv);
-
-            document.getElementById('confirm-delete').onclick = async () => {
-                const result = await window.dataSdk.delete(item);
-                if (!result.isOk) {
-                    alert('Gagal menghapus data. Silakan coba lagi.');
-                }
-                document.body.removeChild(confirmDiv);
-            };
-
-            document.getElementById('cancel-delete').onclick = () => {
-                document.body.removeChild(confirmDiv);
-            };
-        }
-
-        // Chat functionality
-        document.getElementById('chat-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const input = document.getElementById('chat-input');
-            const submitBtn = document.getElementById('chat-submit');
-            const message = input.value.trim();
-            
-            if (!message) return;
-
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="loading-spinner"></span>';
-
-            addChatMessage(message, 'user');
-            input.value = '';
-
-            setTimeout(() => {
-                const offices = allData.filter(item => item.type === 'office');
-                const vehicles = allData.filter(item => item.type === 'vehicle');
-                
-                let response = '';
-                
-                if (message.toLowerCase().includes('rute') || message.toLowerCase().includes('tercepat')) {
-                    if (offices.length > 0) {
-                        const office = offices[0];
-                        response = `🗺️ Rekomendasi Rute Tercepat:\n\nDari lokasi Anda ke ${office.nama} (${office.kode_pos}):\n\n✅ Estimasi waktu: 25-30 menit\n📍 Jarak: ~8.5 km\n🛣️ Rute: Jl. Raya Krendang → Jl. Daan Mogot → ${office.alamat}\n\n💡 Tips: Hindari jam sibuk (07:00-09:00 & 17:00-19:00)`;
-                    } else {
-                        response = 'Belum ada data kantor pos. Silakan tambahkan kantor pos terlebih dahulu untuk mendapatkan rekomendasi rute.';
-                    }
-                } else if (message.toLowerCase().includes('kendaraan') || message.toLowerCase().includes('status')) {
-                    if (vehicles.length > 0) {
-                        response = `🚚 Status Kendaraan:\n\n${vehicles.map(v => `${v.plat_nomor} - ${v.status}\nDriver: ${v.driver_name}${v.destination ? `\nTujuan: ${v.destination}` : ''}`).join('\n\n')}`;
-                    } else {
-                        response = 'Belum ada data kendaraan. Silakan tambahkan kendaraan terlebih dahulu.';
-                    }
-                } else if (message.toLowerCase().includes('kantor') || message.toLowerCase().includes('pos')) {
-                    if (offices.length > 0) {
-                        response = `📮 Daftar Kantor Pos:\n\n${offices.map(o => `${o.nama}\nKode Pos: ${o.kode_pos}\n${o.alamat}`).join('\n\n')}`;
-                    } else {
-                        response = 'Belum ada data kantor pos. Silakan tambahkan kantor pos terlebih dahulu.';
-                    }
-                } else {
-                    response = `Halo! Saya AI Assistant untuk routing. Saya bisa membantu Anda dengan:\n\n🗺️ Rekomendasi rute tercepat\n🚚 Status kendaraan\n📮 Informasi kantor pos\n\nSilakan tanyakan tentang topik di atas!`;
-                }
-                
-                addChatMessage(response, 'ai');
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = `<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>`;
-            }, 1000);
-        });
-
-        function addChatMessage(text, sender) {
-            const messagesContainer = document.getElementById('chat-messages');
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `chat-message chat-${sender}`;
-            messageDiv.style.whiteSpace = 'pre-line';
-            messageDiv.textContent = text;
-            messagesContainer.appendChild(messageDiv);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-
-        // Data handler
-        const dataHandler = {
-            onDataChanged(data) {
-                allData = data;
-                renderOfficesList();
-                renderVehiclesList();
-                updateMapMarkers();
-            }
-        };
-
-        // Config change handler
-        async function onConfigChange(config) {
-            const titleElement = document.getElementById('dashboard-title');
-            const locationElement = document.getElementById('location-name');
-            const welcomeElement = document.getElementById('chat-welcome');
-            
-            titleElement.textContent = config.dashboard_title || defaultConfig.dashboard_title;
-            locationElement.textContent = config.default_location || defaultConfig.default_location;
-            welcomeElement.textContent = config.chat_welcome || defaultConfig.chat_welcome;
-            
-            const primaryColor = config.primary_color || defaultConfig.primary_color;
-            const secondaryColor = config.secondary_color || defaultConfig.secondary_color;
-            
-            document.querySelectorAll('.btn-primary').forEach(btn => {
-                btn.style.background = `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`;
-            });
-            
-            document.querySelectorAll('.gradient-bg').forEach(el => {
-                el.style.background = `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`;
-            });
-        }
-
-
-// =======================
-// LOAD GEOJSON DATA
-// =======================
+/* =====================================================
+   LOAD GEOJSON DATA
+===================================================== */
 async function loadOutletGeoJSON() {
     try {
         const res = await fetch("data/outlet_pekalongan_final.geojson");
         const geojson = await res.json();
 
-        if (!geojson.features || !Array.isArray(geojson.features)) {
-            console.error("Format GeoJSON tidak valid");
-            return;
-        }
-
-        const bounds = L.latLngBounds([]); // 🔥 untuk auto zoom
+        const bounds = L.latLngBounds([]);
 
         const offices = geojson.features.map((f, idx) => {
-            const p = f.properties || {};
-            const geom = f.geometry || {};
+            const p = f.properties;
+            const [lng, lat] = f.geometry.coordinates;
 
-            if (!geom.coordinates) return null;
-
-            const [lng, lat] = geom.coordinates;
-
-            // 🔥 kumpulkan bounds
             bounds.extend([lat, lng]);
 
             return {
-               id: `geo_${p.id_dirian ?? idx}`,
-               type: "office",
-           
-               // 🔥 FORMAT NAMA BARU
-               nama: `${p.jnskantor ?? ""} ${p.nama_dirian ?? "Kantor Pos"}`.trim(),
-           
-               kode_pos: p.id_dirian ?? "-",
-               alamat: p.alamat_lengkap ?? "-",
-               latitude: Number(lat),
-               longitude: Number(lng),
-           
-               jnskantor: p.jnskantor ?? "-",
-               kelurahan: p.kelurahan_fix ?? p.kelurahan ?? "-",
-               jamlayanan: p.jamlayanan ?? "-",
-               layanan: p.layanan ?? "-",
-           
-               source: "geojson"
-           };
+                id: `geo_${p.id_dirian ?? idx}`,
+                type: "office",
 
-        }).filter(Boolean);
+                // 🔥 FORMAT NAMA: KCU Kandangserang
+                nama: `${p.jnskantor ?? ""} ${p.nama_dirian ?? ""}`.trim(),
 
-        // hindari dobel data
-        allData = allData.filter(d => d.source !== "geojson");
-        allData.push(...offices);
+                alamat: p.alamat_lengkap ?? "-",
+                latitude: Number(lat),
+                longitude: Number(lng),
 
-        renderOfficesList();
+                jnskantor: p.jnskantor ?? "-",
+                kelurahan: p.kelurahan_fix ?? "-",
+
+                source: "geojson"
+            };
+        });
+
+        allData = offices;
+
         updateMapMarkers();
+        renderOfficesList();
 
-        // 🔥 INI KUNCINYA: fokus ke Pekalongan
         if (bounds.isValid()) {
             map.fitBounds(bounds, { padding: [40, 40] });
         }
 
-        console.log(`✅ Loaded ${offices.length} kantor pos dari GeoJSON`);
+        console.log(`✅ Loaded ${offices.length} kantor dari GeoJSON`);
     } catch (err) {
         console.error("❌ Gagal load GeoJSON:", err);
     }
 }
 
-
-        // Initialize
-async function init() {
-    initMap();
-function addGeoJSONToMap(geojson) {
-    const geoLayer = L.geoJSON(geojson, {
-        pointToLayer: (feature, latlng) => {
-            return L.marker(latlng, {
-                icon: L.divIcon({
-                    html: `<div style="
-                        background:#667eea;
-                        color:white;
-                        width:36px;
-                        height:36px;
-                        border-radius:50%;
-                        display:flex;
-                        align-items:center;
-                        justify-content:center;
-                        font-size:18px;
-                        box-shadow:0 2px 8px rgba(0,0,0,.3);
-                    ">📮</div>`
-                })
-            });
-        },
-        onEachFeature: (feature, layer) => {
-            const p = feature.properties;
-            layer.bindPopup(`
-                <strong>${p.nama_dirian}</strong><br>
-                ${p.alamat_lengkap}<br>
-                <small>${p.kelurahan_fix}</small>
-            `);
-        }
-    }).addTo(map);
-
-    // 🔥 auto zoom ke semua titik
-    map.fitBounds(geoLayer.getBounds());
+/* =====================================================
+   AI HEURISTIC ENGINE
+===================================================== */
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1 * Math.PI / 180) *
+        Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-    // 🔥 LOAD DATA GEOJSON (AI INPUT)
-    await loadOutletGeoJSON();
+function heuristicScore(office, userLat, userLng) {
+    const distance = calculateDistance(
+        userLat, userLng,
+        office.latitude, office.longitude
+    );
 
-    if (window.dataSdk) {
-        const result = await window.dataSdk.init(dataHandler);
-        if (!result.isOk) {
-            console.error('Failed to initialize data SDK');
-        }
+    let distanceScore =
+        distance <= 1 ? 100 :
+        distance <= 3 ? 80 :
+        distance <= 5 ? 60 : 40;
+
+    let officeScore =
+        office.jnskantor === "KCU" ? 100 :
+        office.jnskantor === "KCP" ? 80 : 60;
+
+    return {
+        total: 0.6 * distanceScore + 0.4 * officeScore,
+        distance: distance.toFixed(2)
+    };
+}
+
+/* =====================================================
+   UI RENDER
+===================================================== */
+function renderOfficesList() {
+    const container = document.getElementById("offices-list");
+
+    if (allData.length === 0) {
+        container.innerHTML = "<p class='text-gray-500'>Tidak ada data.</p>";
+        return;
     }
 
-    if (window.elementSdk) {
-        window.elementSdk.init({
-            defaultConfig,
-            onConfigChange,
-            mapToCapabilities: (config) => ({
-                recolorables: [
-                    {
-                        get: () => config.primary_color || defaultConfig.primary_color,
-                        set: (value) => {
-                            config.primary_color = value;
-                            window.elementSdk.setConfig({ primary_color: value });
-                        }
-                    },
-                    {
-                        get: () => config.secondary_color || defaultConfig.secondary_color,
-                        set: (value) => {
-                            config.secondary_color = value;
-                            window.elementSdk.setConfig({ secondary_color: value });
-                        }
-                    }
-                ],
-                borderables: [],
-                fontEditable: undefined,
-                fontSizeable: undefined
-            }),
-            mapToEditPanelValues: (config) => new Map([
-                ['dashboard_title', config.dashboard_title || defaultConfig.dashboard_title],
-                ['default_location', config.default_location || defaultConfig.default_location],
-                ['chat_welcome', config.chat_welcome || defaultConfig.chat_welcome]
-            ])
+    container.innerHTML = allData.map(o => `
+        <div class="border p-3 rounded">
+            <strong>${o.nama}</strong><br>
+            <small>${o.alamat}</small>
+        </div>
+    `).join("");
+}
+
+/* =====================================================
+   CHAT AI LOGIC
+===================================================== */
+document.getElementById("chat-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const input = document.getElementById("chat-input");
+    const msg = input.value.toLowerCase();
+    input.value = "";
+
+    addChatMessage(msg, "user");
+
+    if (msg.includes("rute") || msg.includes("tercepat")) {
+        const userLat = -7.02;
+        const userLng = 109.62;
+
+        const evaluated = allData.map(o => {
+            const h = heuristicScore(o, userLat, userLng);
+            return { ...o, score: h.total, distance: h.distance };
         });
+
+        evaluated.sort((a, b) => b.score - a.score);
+        const best = evaluated[0];
+
+        addChatMessage(
+`🤖 AI Routing Result
+
+Kantor Terpilih:
+${best.nama}
+
+Jarak:
+± ${best.distance} km
+
+Skor AI:
+${best.score}
+
+Alasan:
+Dipilih berdasarkan evaluasi heuristic
+berbasis jarak dan tipe kantor.`,
+        "ai");
+    } else {
+        addChatMessage("Saya bisa membantu mencari rute tercepat 📍", "ai");
     }
+});
+
+function addChatMessage(text, sender) {
+    const box = document.getElementById("chat-messages");
+    const div = document.createElement("div");
+    div.className = `chat-message chat-${sender}`;
+    div.textContent = text;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+}
+
+/* =====================================================
+   INIT
+===================================================== */
+async function init() {
+    initMap();
+    await loadOutletGeoJSON();
 }
 
 init();
+</script>
 
-    
-    </script>
  <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'99adb2aa440b9b07',t:'MTc2MjUyNzYwMi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
