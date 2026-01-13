@@ -682,6 +682,37 @@
             });
         }
 
+
+// =======================
+// LOAD GEOJSON DATA
+// =======================
+async function loadOutletGeoJSON() {
+    const response = await fetch("data/outlet_pekalongan_final.geojson");
+    const geojson = await response.json();
+
+    const offices = geojson.features.map((feature, idx) => {
+        const props = feature.properties;
+        const [lng, lat] = feature.geometry.coordinates;
+
+        return {
+            id: `geo_${idx}`,
+            type: "office",
+            nama: props.nama_dirian || "Kantor Pos",
+            kode_pos: props.kode_pos || "-",
+            alamat: props.alamat_lengkap || "",
+            latitude: lat,
+            longitude: lng,
+            source: "geojson"
+        };
+    });
+
+    // masukkan ke allData
+    allData = [...allData, ...offices];
+
+    renderOfficesList();
+    updateMapMarkers();
+}
+
         // Initialize
 async function init() {
     initMap();
