@@ -460,6 +460,26 @@ function renderOfficesList() {
 }
 
 /* =====================================================
+   NORMALISASI NAMA
+===================================================== */
+ function normalizeText(text) {
+    return text
+        .toLowerCase()
+        .replace(/kcu|kcp|kantor|pos/g, "")
+        .replace(/\s+/g, "")
+        .trim();
+}
+
+function findOfficeSmart(keyword) {
+    const key = normalizeText(keyword);
+
+    return allData.find(o => {
+        const officeKey = normalizeText(o.nama);
+        return officeKey.includes(key) || key.includes(officeKey);
+    });
+}
+
+/* =====================================================
    CHAT AI LOGIC (FIXED & BENAR)
 ===================================================== */
 document.getElementById("chat-form").addEventListener("submit", e => {
@@ -477,15 +497,8 @@ document.getElementById("chat-form").addEventListener("submit", e => {
     if (match) {
         const fromText = match[1].trim();
         const toText = match[2].trim();
-
-        const asal = allData.find(o =>
-            o.nama.toLowerCase().includes(fromText)
-        );
-
-        const tujuan = allData.find(o =>
-            o.nama.toLowerCase().includes(toText)
-        );
-
+           const asal = findOfficeSmart(fromText);
+           const tujuan = findOfficeSmart(toText);
         if (!asal || !tujuan) {
             addChatMessage(
                 "❌ Kantor asal atau tujuan tidak ditemukan di data.",
