@@ -699,7 +699,7 @@ async function loadOutletGeoJSON() {
                 id: `geo_${p.id_dirian || idx}`,
                 type: "office",                 // 🔥 PENTING
                 nama: p.nama_dirian,
-                kode_pos: "-",                  // memang tidak ada di geojson
+                kode_pos: p.id_dirian, 
                 alamat: p.alamat_lengkap,
                 latitude: lat,
                 longitude: lng,
