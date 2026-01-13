@@ -314,6 +314,7 @@ const defaultConfig = {
 let map;
 let markers = [];
 let allData = [];
+let routingControl = null;
 
 /* =====================================================
    MAP FUNCTIONS
@@ -329,7 +330,7 @@ function updateMapMarkers() {
     markers.forEach(m => map.removeLayer(m));
     markers = [];
 
-    allData.filter(d => d.type === "office").forEach(o => {
+    allData.forEach(o => {
         const marker = L.marker([o.latitude, o.longitude]).addTo(map);
         marker.bindPopup(`
             <strong>${o.nama}</strong><br>
@@ -350,7 +351,7 @@ async function loadOutletGeoJSON() {
 
         const bounds = L.latLngBounds([]);
 
-        const offices = geojson.features.map((f, idx) => {
+        allData = geojson.features.map((f, idx) => {
             const p = f.properties;
             const [lng, lat] = f.geometry.coordinates;
 
@@ -359,22 +360,14 @@ async function loadOutletGeoJSON() {
             return {
                 id: `geo_${p.id_dirian ?? idx}`,
                 type: "office",
-
-                // 🔥 FORMAT NAMA: KCU Kandangserang
                 nama: `${p.jnskantor ?? ""} ${p.nama_dirian ?? ""}`.trim(),
-
                 alamat: p.alamat_lengkap ?? "-",
                 latitude: Number(lat),
                 longitude: Number(lng),
-
                 jnskantor: p.jnskantor ?? "-",
-                kelurahan: p.kelurahan_fix ?? "-",
-
-                source: "geojson"
+                kelurahan: p.kelurahan_fix ?? "-"
             };
         });
-
-        allData = offices;
 
         updateMapMarkers();
         renderOfficesList();
@@ -383,14 +376,36 @@ async function loadOutletGeoJSON() {
             map.fitBounds(bounds, { padding: [40, 40] });
         }
 
-        console.log(`✅ Loaded ${offices.length} kantor dari GeoJSON`);
+        console.log(`✅ Loaded ${allData.length} kantor dari GeoJSON`);
     } catch (err) {
         console.error("❌ Gagal load GeoJSON:", err);
     }
 }
 
 /* =====================================================
-   AI HEURISTIC ENGINE
+   ROUTING JALAN NYATA (OPS I)
+===================================================== */
+function drawRoute(from, to) {
+    if (routingControl) {
+        map.removeControl(routingControl);
+    }
+
+    routingControl = L.Routing.control({
+        waypoints: [
+            L.latLng(from.latitude, from.longitude),
+            L.latLng(to.latitude, to.longitude)
+        ],
+        routeWhileDragging: false,
+        addWaypoints: false,
+        draggableWaypoints: false,
+        fitSelectedRoutes: true,
+        show: false,
+        createMarker: () => null
+    }).addTo(map);
+}
+
+/* =====================================================
+   AI HEURISTIC (UNTUK REKOMENDASI SAJA)
 ===================================================== */
 function calculateDistance(lat1, lon1, lat2, lon2) {
     const R = 6371;
@@ -410,12 +425,12 @@ function heuristicScore(office, userLat, userLng) {
         office.latitude, office.longitude
     );
 
-    let distanceScore =
+    const distanceScore =
         distance <= 1 ? 100 :
         distance <= 3 ? 80 :
         distance <= 5 ? 60 : 40;
 
-    let officeScore =
+    const officeScore =
         office.jnskantor === "KCU" ? 100 :
         office.jnskantor === "KCP" ? 80 : 60;
 
@@ -445,17 +460,59 @@ function renderOfficesList() {
 }
 
 /* =====================================================
-   CHAT AI LOGIC
+   CHAT AI LOGIC (FIXED & BENAR)
 ===================================================== */
 document.getElementById("chat-form").addEventListener("submit", e => {
     e.preventDefault();
+
     const input = document.getElementById("chat-input");
-    const msg = input.value.toLowerCase();
+    const text = input.value.trim().toLowerCase();
     input.value = "";
 
-    addChatMessage(msg, "user");
+    addChatMessage(text, "user");
 
-    if (msg.includes("rute") || msg.includes("tercepat")) {
+    // ===== MODE ROUTING EKSPLISIT =====
+    const match = text.match(/dari (.+) ke (.+)/i);
+
+    if (match) {
+        const fromText = match[1].trim();
+        const toText = match[2].trim();
+
+        const asal = allData.find(o =>
+            o.nama.toLowerCase().includes(fromText)
+        );
+
+        const tujuan = allData.find(o =>
+            o.nama.toLowerCase().includes(toText)
+        );
+
+        if (!asal || !tujuan) {
+            addChatMessage(
+                "❌ Kantor asal atau tujuan tidak ditemukan di data.",
+                "ai"
+            );
+            return;
+        }
+
+        drawRoute(asal, tujuan);
+
+        addChatMessage(
+`🧭 Rute Jalan (OpenStreetMap)
+
+Dari:
+${asal.nama}
+
+Ke:
+${tujuan.nama}
+
+📌 Jalur jalan ditampilkan langsung di peta.`,
+            "ai"
+        );
+        return;
+    }
+
+    // ===== MODE REKOMENDASI (OPSIONAL) =====
+    if (text.includes("terdekat") || text.includes("rekomendasi")) {
         const userLat = -7.02;
         const userLng = 109.62;
 
@@ -468,24 +525,21 @@ document.getElementById("chat-form").addEventListener("submit", e => {
         const best = evaluated[0];
 
         addChatMessage(
-`🤖 AI Routing Result
+`🤖 Rekomendasi Kantor
 
-Kantor Terpilih:
 ${best.nama}
-
-Jarak:
-± ${best.distance} km
-
-Skor AI:
-${best.score}
-
-Alasan:
-Dipilih berdasarkan evaluasi heuristic
-berbasis jarak dan tipe kantor.`,
-        "ai");
-    } else {
-        addChatMessage("Saya bisa membantu mencari rute tercepat 📍", "ai");
+Jarak: ± ${best.distance} km
+Skor AI: ${best.score}`,
+            "ai"
+        );
+        return;
     }
+
+    // ===== FALLBACK =====
+    addChatMessage(
+        "Contoh:\n• rute dari KCU Pekalongan ke KCP Kandangserang\n• kantor terdekat",
+        "ai"
+    );
 });
 
 function addChatMessage(text, sender) {
@@ -506,6 +560,7 @@ async function init() {
 }
 
 init();
+
 </script>
 
  <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'99adb2aa440b9b07',t:'MTc2MjUyNzYwMi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
