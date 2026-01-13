@@ -687,31 +687,44 @@
 // LOAD GEOJSON DATA
 // =======================
 async function loadOutletGeoJSON() {
-    const response = await fetch("data/outlet_pekalongan_final.geojson");
-    const geojson = await response.json();
+    try {
+        const res = await fetch("data/outlet_pekalongan_final.geojson");
+        const geojson = await res.json();
 
-    const offices = geojson.features.map((feature, idx) => {
-        const props = feature.properties;
-        const [lng, lat] = feature.geometry.coordinates;
+        const offices = geojson.features.map((f, idx) => {
+            const p = f.properties;
+            const [lng, lat] = f.geometry.coordinates;
 
-        return {
-            id: `geo_${idx}`,
-            type: "office",
-            nama: props.nama_dirian || "Kantor Pos",
-            kode_pos: props.kode_pos || "-",
-            alamat: props.alamat_lengkap || "",
-            latitude: lat,
-            longitude: lng,
-            source: "geojson"
-        };
-    });
+            return {
+                id: `geo_${p.id_dirian || idx}`,
+                type: "office",                 // 🔥 PENTING
+                nama: p.nama_dirian,
+                kode_pos: "-",                  // memang tidak ada di geojson
+                alamat: p.alamat_lengkap,
+                latitude: lat,
+                longitude: lng,
 
-    // masukkan ke allData
-    allData = [...allData, ...offices];
+                // tambahan (opsional, tapi bagus utk AI)
+                jnskantor: p.jnskantor,
+                kelurahan: p.kelurahan_fix,
+                jamlayanan: p.jamlayanan,
+                layanan: p.layanan,
 
-    renderOfficesList();
-    updateMapMarkers();
+                source: "geojson"
+            };
+        });
+
+        allData.push(...offices);
+
+        renderOfficesList();
+        updateMapMarkers();
+
+        console.log(`✅ Loaded ${offices.length} kantor pos dari GeoJSON`);
+    } catch (err) {
+        console.error("❌ Gagal load GeoJSON:", err);
+    }
 }
+
 
         // Initialize
 async function init() {
