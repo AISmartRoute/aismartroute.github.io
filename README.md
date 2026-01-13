@@ -1,5 +1,6 @@
 # aismartroute.github.io
 Aplikasi Smart route
+Frontend dashboard for AI-based smart routing system using GIS and LLM
 
 1. buat html css js di repositori ini - index.html, dari konsep yang ada di canva ( done )
 2. buat akun google cloud flatform - yang sudah verified akunnya dan sudah bisa deploy ( done pake )
