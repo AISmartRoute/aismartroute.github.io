@@ -691,31 +691,44 @@ async function loadOutletGeoJSON() {
         const res = await fetch("data/outlet_pekalongan_final.geojson");
         const geojson = await res.json();
 
+        // 🔒 safety check
+        if (!geojson.features || !Array.isArray(geojson.features)) {
+            console.error("Format GeoJSON tidak valid");
+            return;
+        }
+
         const offices = geojson.features.map((f, idx) => {
-            const p = f.properties;
-            const [lng, lat] = f.geometry.coordinates;
+            const p = f.properties || {};
+            const geom = f.geometry || {};
+
+            if (!geom.coordinates) return null;
+
+            const [lng, lat] = geom.coordinates;
 
             return {
-                id: `geo_${p.id_dirian || idx}`,
-                type: "office",                 // 🔥 PENTING
-                nama: p.nama_dirian,
-                kode_pos: p.id_dirian, 
-                alamat: p.alamat_lengkap,
-                latitude: lat,
-                longitude: lng,
+                id: `geo_${p.id_dirian ?? idx}`,
+                type: "office",                     // WAJIB untuk UI
+                nama: p.nama_dirian ?? "Kantor Pos",
+                kode_pos: p.id_dirian ?? "-",       // kamu pakai id_dirian → OK
+                alamat: p.alamat_lengkap ?? "-",
+                latitude: Number(lat),
+                longitude: Number(lng),
 
-                // tambahan (opsional, tapi bagus utk AI)
-                jnskantor: p.jnskantor,
-                kelurahan: p.kelurahan_fix,
-                jamlayanan: p.jamlayanan,
-                layanan: p.layanan,
+                // atribut AI / SIG
+                jnskantor: p.jnskantor ?? "-",
+                kelurahan: p.kelurahan_fix ?? p.kelurahan ?? "-",
+                jamlayanan: p.jamlayanan ?? "-",
+                layanan: p.layanan ?? "-",
 
                 source: "geojson"
             };
-        });
+        }).filter(Boolean); // 🔥 buang data rusak
 
+        // ❗ jangan dobel load kalau init terpanggil ulang
+        allData = allData.filter(d => d.source !== "geojson");
         allData.push(...offices);
 
+        // refresh UI
         renderOfficesList();
         updateMapMarkers();
 
@@ -725,10 +738,42 @@ async function loadOutletGeoJSON() {
     }
 }
 
-
         // Initialize
 async function init() {
     initMap();
+function addGeoJSONToMap(geojson) {
+    const geoLayer = L.geoJSON(geojson, {
+        pointToLayer: (feature, latlng) => {
+            return L.marker(latlng, {
+                icon: L.divIcon({
+                    html: `<div style="
+                        background:#667eea;
+                        color:white;
+                        width:36px;
+                        height:36px;
+                        border-radius:50%;
+                        display:flex;
+                        align-items:center;
+                        justify-content:center;
+                        font-size:18px;
+                        box-shadow:0 2px 8px rgba(0,0,0,.3);
+                    ">📮</div>`
+                })
+            });
+        },
+        onEachFeature: (feature, layer) => {
+            const p = feature.properties;
+            layer.bindPopup(`
+                <strong>${p.nama_dirian}</strong><br>
+                ${p.alamat_lengkap}<br>
+                <small>${p.kelurahan_fix}</small>
+            `);
+        }
+    }).addTo(map);
+
+    // 🔥 auto zoom ke semua titik
+    map.fitBounds(geoLayer.getBounds());
+}
 
     // 🔥 LOAD DATA GEOJSON (AI INPUT)
     await loadOutletGeoJSON();
