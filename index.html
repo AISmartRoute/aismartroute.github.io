@@ -710,21 +710,25 @@ async function loadOutletGeoJSON() {
             bounds.extend([lat, lng]);
 
             return {
-                id: `geo_${p.id_dirian ?? idx}`,
-                type: "office",
-                nama: `${p.nama_dirian ?? "Kantor Pos"} (${p.jnskantor ?? "-"})`,
-                kode_pos: p.id_dirian ?? "-",
-                alamat: p.alamat_lengkap ?? "-",
-                latitude: Number(lat),
-                longitude: Number(lng),
+               id: `geo_${p.id_dirian ?? idx}`,
+               type: "office",
+           
+               // 🔥 FORMAT NAMA BARU
+               nama: `${p.jnskantor ?? ""} ${p.nama_dirian ?? "Kantor Pos"}`.trim(),
+           
+               kode_pos: p.id_dirian ?? "-",
+               alamat: p.alamat_lengkap ?? "-",
+               latitude: Number(lat),
+               longitude: Number(lng),
+           
+               jnskantor: p.jnskantor ?? "-",
+               kelurahan: p.kelurahan_fix ?? p.kelurahan ?? "-",
+               jamlayanan: p.jamlayanan ?? "-",
+               layanan: p.layanan ?? "-",
+           
+               source: "geojson"
+           };
 
-                jnskantor: p.jnskantor ?? "-",
-                kelurahan: p.kelurahan_fix ?? p.kelurahan ?? "-",
-                jamlayanan: p.jamlayanan ?? "-",
-                layanan: p.layanan ?? "-",
-
-                source: "geojson"
-            };
         }).filter(Boolean);
 
         // hindari dobel data
