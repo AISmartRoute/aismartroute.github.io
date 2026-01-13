@@ -399,7 +399,7 @@ async function loadOutletGeoJSON() {
 ===================================================== */
 function drawRoute(from, to) {
     if (!L.Routing) {
-        console.error("Leaflet Routing Machine belum termuat");
+        addChatMessage("❌ Routing engine belum siap.", "ai");
         return;
     }
 
@@ -416,9 +416,7 @@ function drawRoute(from, to) {
             serviceUrl: "https://router.project-osrm.org/route/v1"
         }),
         lineOptions: {
-            styles: [
-                { color: "#7c3aed", opacity: 0.9, weight: 6 }
-            ]
+            styles: [{ color: "#7c3aed", weight: 6, opacity: 0.9 }]
         },
         addWaypoints: false,
         draggableWaypoints: false,
@@ -429,122 +427,89 @@ function drawRoute(from, to) {
     .on("routesfound", function (e) {
         const route = e.routes[0];
 
-        // ===== DATA DASAR DARI OSRM =====
+        // ===== DATA DASAR =====
         const distanceKm = (route.summary.totalDistance / 1000).toFixed(2);
-        const normalDuration = route.summary.totalTime; // detik
+        const normalTime = route.summary.totalTime; // detik
 
-        // ===== ESTIMASI JAM SIBUK =====
+        // ===== JAM SIBUK =====
         const rush = isRushHour();
-        const multiplier = rush ? 1.6 : 1.0;
-        const rushDuration = normalDuration * multiplier;
+        const rushTime = rush ? normalTime * 1.6 : normalTime;
 
-        // ===== PETUNJUK JALAN =====
-        const instructionsText = formatInstructions(route.instructions);
+        // ✅ INSTRUKSI YANG BENAR
+        const steps = route.legs[0].steps;
+        const instructionText = formatInstructions(steps);
 
         addChatMessage(
 `🧭 Rute Jalan (AI Routing)
 
-Dari:
-${from.nama}
+📍 Dari: ${from.nama}
+🎯 Ke: ${to.nama}
 
-Ke:
-${to.nama}
-
-📏 Jarak:
-${distanceKm} km
-
-⏱️ Estimasi Jam Biasa:
-${formatDuration(normalDuration)}
-
-🚦 Estimasi Jam Sibuk:
-${formatDuration(rushDuration)}
+📏 Jarak: ${distanceKm} km
+⏱️ Estimasi Jam Biasa: ${formatDuration(normalTime)}
+🚦 Estimasi Jam Sibuk: ${formatDuration(rushTime)}
 
 🛣️ Petunjuk Jalan:
-${instructionsText}
+${instructionText}
 
-${rush ? "⚠️ Saat ini jam sibuk, estimasi disesuaikan." : "✅ Lalu lintas relatif normal."}`,
-            "ai"
-        );
+${rush ? "⚠️ Saat ini jam sibuk." : "✅ Lalu lintas relatif normal."}`,
+        "ai");
     })
-    .on("routingerror", function (err) {
-        console.error(err);
-        addChatMessage(
-            "❌ Gagal menghitung rute jalan. Silakan coba lokasi lain.",
-            "ai"
-        );
+    .on("routingerror", function () {
+        addChatMessage("❌ Gagal menghitung rute.", "ai");
     })
     .addTo(map);
 }
 
-
 /* =====================================================
   ARAH JALAN
 ===================================================== */
-function formatInstructions(instructions) {
-    if (!instructions || instructions.length === 0) {
+function formatInstructions(steps) {
+    if (!steps || steps.length === 0) {
         return "Petunjuk jalan tidak tersedia.";
     }
 
-    const cleaned = [];
-    let bufferDistance = 0;
+    const result = [];
+    let straightBuffer = 0;
 
-    instructions.forEach(step => {
-        const text = step.text.toLowerCase();
-        const road = step.road || "";
-        const dist = step.distance || 0;
+    steps.forEach(step => {
+        const text = step.maneuver.type;
+        const road = step.name;
+        const dist = step.distance;
 
-        // Gabungkan "lanjut ke jalan tanpa nama"
-        if (
-            text.includes("lanjut") &&
-            (!road || road.toLowerCase().includes("tanpa nama"))
-        ) {
-            bufferDistance += dist;
+        // gabungkan jalan lurus
+        if (text === "straight" && (!road || road === "")) {
+            straightBuffer += dist;
             return;
         }
 
-        // Flush buffer jika ada
-        if (bufferDistance > 0) {
-            cleaned.push(
-                `Lurus ±${(bufferDistance / 1000).toFixed(1)} km`
-            );
-            bufferDistance = 0;
+        if (straightBuffer > 0) {
+            result.push(`Lurus ±${(straightBuffer / 1000).toFixed(1)} km`);
+            straightBuffer = 0;
         }
 
-        // Belok kiri / kanan
-        if (text.includes("kiri")) {
-            cleaned.push(
-                `Belok kiri ke ${road || "jalan utama"}`
-            );
+        if (text === "turn-left") {
+            result.push(`Belok kiri ke ${road || "jalan utama"}`);
             return;
         }
 
-        if (text.includes("kanan")) {
-            cleaned.push(
-                `Belok kanan ke ${road || "jalan utama"}`
-            );
+        if (text === "turn-right") {
+            result.push(`Belok kanan ke ${road || "jalan utama"}`);
             return;
         }
 
-        // Masuk jalan bernama
         if (road) {
-            cleaned.push(
-                `Ikuti ${road} ±${Math.round(dist)} m`
-            );
+            result.push(`Ikuti ${road} ±${Math.round(dist)} m`);
         }
     });
 
-    // Flush sisa buffer
-    if (bufferDistance > 0) {
-        cleaned.push(
-            `Lurus ±${(bufferDistance / 1000).toFixed(1)} km`
-        );
+    if (straightBuffer > 0) {
+        result.push(`Lurus ±${(straightBuffer / 1000).toFixed(1)} km`);
     }
 
-    // Potong max 8 langkah (biar ga kepanjangan)
-    const limited = cleaned.slice(0, 8);
-
-    return limited
-        .map((s, i) => `${i + 1}. ${s}`)
+    return result
+        .slice(0, 8)
+        .map((r, i) => `${i + 1}. ${r}`)
         .join("\n");
 }
 
