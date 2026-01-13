@@ -399,7 +399,7 @@ async function loadOutletGeoJSON() {
 ===================================================== */
 function drawRoute(from, to) {
     if (routingControl) {
-        try { map.removeControl(routingControl); } catch (e) {}
+        map.removeControl(routingControl);
     }
 
     routingControl = L.Routing.control({
@@ -407,90 +407,58 @@ function drawRoute(from, to) {
             L.latLng(from.latitude, from.longitude),
             L.latLng(to.latitude, to.longitude)
         ],
-
         router: L.Routing.osrmv1({
-            serviceUrl: "https://router.project-osrm.org/route/v1",
-            profile: "driving",
-            timeout: 30000,
-            steps: true,          // 🔥 INI YANG DIPERBAIKI
-            alternatives: false
+            serviceUrl: "https://router.project-osrm.org/route/v1"
         }),
-
-        routeWhileDragging: false,
-        showAlternatives: false,
-        waypointMode: "snap",
-
         lineOptions: {
-            styles: [{ color: "#7c3aed", weight: 6 }]
+            styles: [{ color: "#7c3aed", weight: 6, opacity: 0.9 }]
         },
-
         addWaypoints: false,
         draggableWaypoints: false,
-        fitSelectedRoutes: true,
         show: false,
         createMarker: () => null
     })
-
     .on("routesfound", function (e) {
         const route = e.routes[0];
-        const steps = route.legs?.[0]?.steps || [];
+        const steps = route.instructions;
 
-        const instructionsText = formatInstructions(steps);
+        const textSteps = formatInstructions(steps);
 
         addChatMessage(
-`🛣️ Petunjuk Jalan:
-${instructionsText}`,
-            "ai"
-        );
-    })
+`🧭 Petunjuk Arah Jalan
 
+Dari: ${from.nama}
+Ke: ${to.nama}
+
+${textSteps}`,
+        "ai");
+    })
     .addTo(map);
 }
 
 /* =====================================================
   ARAH JALAN
 ===================================================== */
-function formatInstructions(steps) {
-    if (!steps || steps.length === 0) {
-        return "Petunjuk jalan tidak tersedia.";
-    }
+ function formatInstructions(instructions) {
+    return instructions.map((step, i) => {
+        const road = step.road || "jalan tanpa nama";
+        const distance = Math.round(step.distance);
 
-    return steps
-        .slice(0, 8) // batasi biar ga kepanjangan
-        .map((step, i) => {
-            const instr = step.maneuver?.instruction;
-            const dist = step.distance || 0;
+        let action = "Lanjut";
 
-            if (!instr) return null;
+        switch (step.type) {
+            case "left": action = "Belok kiri"; break;
+            case "right": action = "Belok kanan"; break;
+            case "sharpLeft": action = "Belok kiri tajam"; break;
+            case "sharpRight": action = "Belok kanan tajam"; break;
+            case "uturn": action = "Putar balik"; break;
+            case "straight": action = "Lurus"; break;
+            case "roundabout": action = "Masuk bundaran"; break;
+            case "arrive": action = "Tiba di tujuan"; break;
+        }
 
-            return `${i + 1}. ${instr} (${Math.round(dist)} m)`;
-        })
-        .filter(Boolean)
-        .join("\n");
-}
-
-
-/* =====================================================
-   ESTIMASI WAKTU
-===================================================== */
- function isRushHour() {
-    const now = new Date();
-    const hour = now.getHours();
-    const minute = now.getMinutes();
-    const time = hour + minute / 60;
-
-    return (
-        (time >= 7 && time <= 9) ||
-        (time >= 16.5 && time <= 19)
-    );
-}
-
-function formatDuration(seconds) {
-    const minutes = Math.round(seconds / 60);
-    if (minutes < 60) return `${minutes} menit`;
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    return `${h} jam ${m} menit`;
+        return `${i + 1}. ${action} ke ${road} (${distance} m)`;
+    }).join("\n");
 }
 
 /* =====================================================
