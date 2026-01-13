@@ -406,6 +406,14 @@ function drawRoute(from, to) {
             L.latLng(from.latitude, from.longitude),
             L.latLng(to.latitude, to.longitude)
         ],
+        router: L.Routing.osrmv1({
+            serviceUrl: "https://router.project-osrm.org/route/v1"
+        }),
+        lineOptions: {
+            styles: [
+                { color: "#7c3aed", opacity: 0.9, weight: 6 } // 🔥 UNGU TEBAL
+            ]
+        },
         routeWhileDragging: false,
         addWaypoints: false,
         draggableWaypoints: false,
@@ -414,7 +422,6 @@ function drawRoute(from, to) {
         createMarker: () => null
     }).addTo(map);
 }
-
 
 /* =====================================================
    AI HEURISTIC (UNTUK REKOMENDASI SAJA)
