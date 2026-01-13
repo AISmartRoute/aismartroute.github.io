@@ -508,21 +508,49 @@ function formatInstructions(steps) {
         return "Petunjuk jalan tidak tersedia.";
     }
 
-    return steps
-        .slice(0, 8) // batasi biar ga kepanjangan
-        .map((step, i) => {
-            const instr = step.maneuver?.instruction || "Lanjut";
-            const road = step.name ? ` (${step.name})` : "";
-            const dist =
-                step.distance > 1000
-                    ? `${(step.distance / 1000).toFixed(1)} km`
-                    : `${Math.round(step.distance)} m`;
+    const results = [];
+    let lastRoad = null;
 
-            return `${i + 1}. ${instr}${road} ±${dist}`;
-        })
-        .join("\n");
+    steps.forEach(step => {
+        const maneuver = step.maneuver || {};
+        const type = maneuver.type || "";
+        const modifier = maneuver.modifier || "";
+        const road = step.name || "jalan tanpa nama";
+
+        // Awal jalan
+        if (!lastRoad && road) {
+            results.push(`Dari ${road}`);
+            lastRoad = road;
+            return;
+        }
+
+        // Belok kiri
+        if (modifier === "left" && road !== lastRoad) {
+            results.push(`Belok kiri ke ${road}`);
+            lastRoad = road;
+            return;
+        }
+
+        // Belok kanan
+        if (modifier === "right" && road !== lastRoad) {
+            results.push(`Belok kanan ke ${road}`);
+            lastRoad = road;
+            return;
+        }
+
+        // Lurus ganti jalan
+        if (
+            (type === "continue" || type === "new name") &&
+            road !== lastRoad
+        ) {
+            results.push(`Lanjut ke ${road}`);
+            lastRoad = road;
+        }
+    });
+
+    // Batasi biar rapi
+    return results.slice(0, 6).map((s, i) => `${i + 1}. ${s}`).join("\n");
 }
-
 
 /* =====================================================
    ESTIMASI WAKTU
