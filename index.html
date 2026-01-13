@@ -480,27 +480,74 @@ ${rush ? "⚠️ Saat ini jam sibuk, estimasi disesuaikan." : "✅ Lalu lintas r
 /* =====================================================
   ARAH JALAN
 ===================================================== */
- function formatInstructions(instructions) {
-    return instructions.map((step, i) => {
-        const road = step.road || "jalan tanpa nama";
-        const distance = Math.round(step.distance);
+function formatInstructions(instructions) {
+    if (!instructions || instructions.length === 0) {
+        return "Petunjuk jalan tidak tersedia.";
+    }
 
-        let action = "Lanjut";
+    const cleaned = [];
+    let bufferDistance = 0;
 
-        switch (step.type) {
-            case "left": action = "Belok kiri"; break;
-            case "right": action = "Belok kanan"; break;
-            case "sharpLeft": action = "Belok kiri tajam"; break;
-            case "sharpRight": action = "Belok kanan tajam"; break;
-            case "uturn": action = "Putar balik"; break;
-            case "straight": action = "Lurus"; break;
-            case "roundabout": action = "Masuk bundaran"; break;
-            case "arrive": action = "Tiba di tujuan"; break;
+    instructions.forEach(step => {
+        const text = step.text.toLowerCase();
+        const road = step.road || "";
+        const dist = step.distance || 0;
+
+        // Gabungkan "lanjut ke jalan tanpa nama"
+        if (
+            text.includes("lanjut") &&
+            (!road || road.toLowerCase().includes("tanpa nama"))
+        ) {
+            bufferDistance += dist;
+            return;
         }
 
-        return `${i + 1}. ${action} ke ${road} (${distance} m)`;
-    }).join("\n");
+        // Flush buffer jika ada
+        if (bufferDistance > 0) {
+            cleaned.push(
+                `Lurus ±${(bufferDistance / 1000).toFixed(1)} km`
+            );
+            bufferDistance = 0;
+        }
+
+        // Belok kiri / kanan
+        if (text.includes("kiri")) {
+            cleaned.push(
+                `Belok kiri ke ${road || "jalan utama"}`
+            );
+            return;
+        }
+
+        if (text.includes("kanan")) {
+            cleaned.push(
+                `Belok kanan ke ${road || "jalan utama"}`
+            );
+            return;
+        }
+
+        // Masuk jalan bernama
+        if (road) {
+            cleaned.push(
+                `Ikuti ${road} ±${Math.round(dist)} m`
+            );
+        }
+    });
+
+    // Flush sisa buffer
+    if (bufferDistance > 0) {
+        cleaned.push(
+            `Lurus ±${(bufferDistance / 1000).toFixed(1)} km`
+        );
+    }
+
+    // Potong max 8 langkah (biar ga kepanjangan)
+    const limited = cleaned.slice(0, 8);
+
+    return limited
+        .map((s, i) => `${i + 1}. ${s}`)
+        .join("\n");
 }
+
 /* =====================================================
    ESTIMASI WAKTU
 ===================================================== */
