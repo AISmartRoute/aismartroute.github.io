@@ -34,7 +34,7 @@ Implementasi JavaScript menunjukkan pemahaman terhadap konsep inti JavaScript se
 
 d. Pelajari CI/CD dari GitHub ke Google Cloud Function
 
-Status: ❌ BELUM DIIMPLEMENTASIKAN (sudah di pelajari)
+Status: ✅ TERPENUHI (INFRASTRUKTUR) menggunakan sendpulse
 
 Pipeline CI/CD belum diterapkan karena aplikasi belum menggunakan backend atau Cloud Function. Fokus pengembangan saat ini berada pada logika AI dan pemrosesan data di sisi client.
 
