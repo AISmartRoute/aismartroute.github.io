@@ -712,7 +712,7 @@ async function loadOutletGeoJSON() {
             return {
                 id: `geo_${p.id_dirian ?? idx}`,
                 type: "office",
-                nama: p.nama_dirian ?? "Kantor Pos",
+                nama: `${p.nama_dirian ?? "Kantor Pos"} (${p.jnskantor ?? "-"})`,
                 kode_pos: p.id_dirian ?? "-",
                 alamat: p.alamat_lengkap ?? "-",
                 latitude: Number(lat),
