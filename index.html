@@ -216,7 +216,7 @@
     <div class="lg:col-span-2 space-y-6"><!-- Map Card -->
      <div class="card p-6">
       <div class="flex justify-between items-center mb-4">
-       <h2 class="text-xl font-bold text-gray-800">Peta Interaktif</h2><span id="location-name" class="text-sm text-gray-600">KCU Pekalongan</span>
+       <h2 class="text-xl font-bold text-gray-800">Peta Interaktif</h2><span id="location-name" class="text-sm text-gray-600">Kabupaten Pekalongan</span>
       </div>
       <div id="map" class="map-container"></div>
      </div><!-- Tabs -->
@@ -503,73 +503,25 @@ Menampilkan jalur terdekat yang memungkinkan.`,
 /* =====================================================
   ARAH JALAN
 ===================================================== */
-function formatInstructions(instructions) {
-    if (!instructions || instructions.length === 0) {
+function formatInstructions(steps) {
+    if (!steps || steps.length === 0) {
         return "Petunjuk jalan tidak tersedia.";
     }
 
-    const cleaned = [];
-    let bufferDistance = 0;
+    return steps
+        .slice(0, 8) // batasi biar ga kepanjangan
+        .map((step, i) => {
+            const instr = step.maneuver?.instruction;
+            const dist = step.distance || 0;
 
-    instructions.forEach(step => {
-        const text = step.text.toLowerCase();
-        const road = step.road || "";
-        const dist = step.distance || 0;
+            if (!instr) return null;
 
-        // Gabungkan "lanjut ke jalan tanpa nama"
-        if (
-            text.includes("lanjut") &&
-            (!road || road.toLowerCase().includes("tanpa nama"))
-        ) {
-            bufferDistance += dist;
-            return;
-        }
-
-        // Flush buffer jika ada
-        if (bufferDistance > 0) {
-            cleaned.push(
-                `Lurus ±${(bufferDistance / 1000).toFixed(1)} km`
-            );
-            bufferDistance = 0;
-        }
-
-        // Belok kiri / kanan
-        if (text.includes("kiri")) {
-            cleaned.push(
-                `Belok kiri ke ${road || "jalan utama"}`
-            );
-            return;
-        }
-
-        if (text.includes("kanan")) {
-            cleaned.push(
-                `Belok kanan ke ${road || "jalan utama"}`
-            );
-            return;
-        }
-
-        // Masuk jalan bernama
-        if (road) {
-            cleaned.push(
-                `Ikuti ${road} ±${Math.round(dist)} m`
-            );
-        }
-    });
-
-    // Flush sisa buffer
-    if (bufferDistance > 0) {
-        cleaned.push(
-            `Lurus ±${(bufferDistance / 1000).toFixed(1)} km`
-        );
-    }
-
-    // Potong max 8 langkah (biar ga kepanjangan)
-    const limited = cleaned.slice(0, 8);
-
-    return limited
-        .map((s, i) => `${i + 1}. ${s}`)
+            return `${i + 1}. ${instr} (${Math.round(dist)} m)`;
+        })
+        .filter(Boolean)
         .join("\n");
 }
+
 
 /* =====================================================
    ESTIMASI WAKTU
