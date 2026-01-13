@@ -398,11 +398,6 @@ async function loadOutletGeoJSON() {
    ROUTING JALAN NYATA (OPS I)
 ===================================================== */
 function drawRoute(from, to) {
-    if (!L.Routing) {
-        console.error("Leaflet Routing Machine belum dimuat");
-        return;
-    }
-
     if (routingControl) {
         map.removeControl(routingControl);
     }
@@ -416,17 +411,54 @@ function drawRoute(from, to) {
             serviceUrl: "https://router.project-osrm.org/route/v1"
         }),
         lineOptions: {
-            styles: [
-                { color: "#7c3aed", opacity: 0.9, weight: 6 } // 🔥 UNGU TEBAL
-            ]
+            styles: [{ color: "#7c3aed", weight: 6, opacity: 0.9 }]
         },
-        routeWhileDragging: false,
         addWaypoints: false,
         draggableWaypoints: false,
-        fitSelectedRoutes: true,
         show: false,
         createMarker: () => null
-    }).addTo(map);
+    })
+    .on("routesfound", function (e) {
+        const route = e.routes[0];
+        const steps = route.instructions;
+
+        const textSteps = formatInstructions(steps);
+
+        addChatMessage(
+`🧭 Petunjuk Arah Jalan
+
+Dari: ${from.nama}
+Ke: ${to.nama}
+
+${textSteps}`,
+        "ai");
+    })
+    .addTo(map);
+}
+
+/* =====================================================
+  ARAH JALAN
+===================================================== */
+ function formatInstructions(instructions) {
+    return instructions.map((step, i) => {
+        const road = step.road || "jalan tanpa nama";
+        const distance = Math.round(step.distance);
+
+        let action = "Lanjut";
+
+        switch (step.type) {
+            case "left": action = "Belok kiri"; break;
+            case "right": action = "Belok kanan"; break;
+            case "sharpLeft": action = "Belok kiri tajam"; break;
+            case "sharpRight": action = "Belok kanan tajam"; break;
+            case "uturn": action = "Putar balik"; break;
+            case "straight": action = "Lurus"; break;
+            case "roundabout": action = "Masuk bundaran"; break;
+            case "arrive": action = "Tiba di tujuan"; break;
+        }
+
+        return `${i + 1}. ${action} ke ${road} (${distance} m)`;
+    }).join("\n");
 }
 
 /* =====================================================
