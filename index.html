@@ -398,18 +398,8 @@ async function loadOutletGeoJSON() {
    ROUTING JALAN NYATA (OPS I)
 ===================================================== */
 function drawRoute(from, to) {
-    if (!L.Routing) {
-        console.error("Leaflet Routing Machine belum termuat");
-        return;
-    }
-
-    // Jangan hapus routing lama secara kasar
     if (routingControl) {
-        try {
-            map.removeControl(routingControl);
-        } catch (e) {
-            console.warn("routing lama aman");
-        }
+        try { map.removeControl(routingControl); } catch (e) {}
     }
 
     routingControl = L.Routing.control({
@@ -418,19 +408,20 @@ function drawRoute(from, to) {
             L.latLng(to.latitude, to.longitude)
         ],
 
-        // ===== OSRM CONFIG (WAJIB) =====
         router: L.Routing.osrmv1({
             serviceUrl: "https://router.project-osrm.org/route/v1",
-            profile: "driving",        // 🔥 WAJIB
-            timeout: 30000
+            profile: "driving",
+            timeout: 30000,
+            steps: true,          // 🔥 INI YANG DIPERBAIKI
+            alternatives: false
         }),
 
-        waypointMode: "snap",         // 🔥 WAJIB BIAR NEMPEL JALAN
+        routeWhileDragging: false,
+        showAlternatives: false,
+        waypointMode: "snap",
 
         lineOptions: {
-            styles: [
-                { color: "#7c3aed", opacity: 0.9, weight: 6 }
-            ]
+            styles: [{ color: "#7c3aed", weight: 6 }]
         },
 
         addWaypoints: false,
@@ -440,65 +431,21 @@ function drawRoute(from, to) {
         createMarker: () => null
     })
 
-    // ===== JIKA ROUTE DITEMUKAN =====
     .on("routesfound", function (e) {
         const route = e.routes[0];
-
-        const distanceKm = (route.summary.totalDistance / 1000).toFixed(2);
-        const normalDuration = route.summary.totalTime;
-
-        const rush = isRushHour();
-        const rushDuration = normalDuration * (rush ? 1.6 : 1);
-
-        // 🔥 AMBIL STEP YANG BENAR
         const steps = route.legs?.[0]?.steps || [];
+
         const instructionsText = formatInstructions(steps);
 
         addChatMessage(
-`🧭 Rute Jalan (AI Routing)
-
-Dari:
-${from.nama}
-
-Ke:
-${to.nama}
-
-📏 Jarak:
-${distanceKm} km
-
-⏱️ Estimasi Jam Biasa:
-${formatDuration(normalDuration)}
-
-🚦 Estimasi Jam Sibuk:
-${formatDuration(rushDuration)}
-
-🛣️ Petunjuk Jalan:
-${instructionsText}
-
-${rush ? "⚠️ Saat ini jam sibuk." : "✅ Lalu lintas relatif normal."}`,
-            "ai"
-        );
-    })
-
-    // ===== JIKA OSRM ERROR (JANGAN PANIK) =====
-    .on("routingerror", function () {
-        addChatMessage(
-`⚠️ Rute detail tidak tersedia.
-
-📏 Estimasi jarak garis lurus:
-± ${calculateDistance(
-    from.latitude, from.longitude,
-    to.latitude, to.longitude
-).toFixed(2)} km
-
-Menampilkan jalur terdekat yang memungkinkan.`,
+`🛣️ Petunjuk Jalan:
+${instructionsText}`,
             "ai"
         );
     })
 
     .addTo(map);
 }
-
 
 /* =====================================================
   ARAH JALAN
