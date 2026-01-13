@@ -691,11 +691,12 @@ async function loadOutletGeoJSON() {
         const res = await fetch("data/outlet_pekalongan_final.geojson");
         const geojson = await res.json();
 
-        // 🔒 safety check
         if (!geojson.features || !Array.isArray(geojson.features)) {
             console.error("Format GeoJSON tidak valid");
             return;
         }
+
+        const bounds = L.latLngBounds([]); // 🔥 untuk auto zoom
 
         const offices = geojson.features.map((f, idx) => {
             const p = f.properties || {};
@@ -705,16 +706,18 @@ async function loadOutletGeoJSON() {
 
             const [lng, lat] = geom.coordinates;
 
+            // 🔥 kumpulkan bounds
+            bounds.extend([lat, lng]);
+
             return {
                 id: `geo_${p.id_dirian ?? idx}`,
-                type: "office",                     // WAJIB untuk UI
+                type: "office",
                 nama: p.nama_dirian ?? "Kantor Pos",
-                kode_pos: p.id_dirian ?? "-",       // kamu pakai id_dirian → OK
+                kode_pos: p.id_dirian ?? "-",
                 alamat: p.alamat_lengkap ?? "-",
                 latitude: Number(lat),
                 longitude: Number(lng),
 
-                // atribut AI / SIG
                 jnskantor: p.jnskantor ?? "-",
                 kelurahan: p.kelurahan_fix ?? p.kelurahan ?? "-",
                 jamlayanan: p.jamlayanan ?? "-",
@@ -722,21 +725,26 @@ async function loadOutletGeoJSON() {
 
                 source: "geojson"
             };
-        }).filter(Boolean); // 🔥 buang data rusak
+        }).filter(Boolean);
 
-        // ❗ jangan dobel load kalau init terpanggil ulang
+        // hindari dobel data
         allData = allData.filter(d => d.source !== "geojson");
         allData.push(...offices);
 
-        // refresh UI
         renderOfficesList();
         updateMapMarkers();
+
+        // 🔥 INI KUNCINYA: fokus ke Pekalongan
+        if (bounds.isValid()) {
+            map.fitBounds(bounds, { padding: [40, 40] });
+        }
 
         console.log(`✅ Loaded ${offices.length} kantor pos dari GeoJSON`);
     } catch (err) {
         console.error("❌ Gagal load GeoJSON:", err);
     }
 }
+
 
         // Initialize
 async function init() {
