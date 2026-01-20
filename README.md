@@ -62,6 +62,3 @@ Status: ✅ TERPENUHI DAN KUAT
 
 Sistem menggunakan pendekatan Explainable AI berbasis rule-based dan heuristik. Setiap keputusan dapat dijelaskan berdasarkan data yang digunakan, proses perhitungan, serta konteks yang memengaruhi hasil, sehingga tidak bersifat black-box.
 
-Kesimpulan
-
-Berdasarkan evaluasi di atas, tugas dosen secara substansi telah terpenuhi. Meskipun sistem menggunakan data GeoJSON yang berasal dari sumber eksternal, hal tersebut tidak mengurangi validitas AI yang dibangun, karena data tersebut diproses, dianalisis, dan dijadikan dasar pengambilan keputusan secara transparan sesuai dengan prinsip Explainable AI.
