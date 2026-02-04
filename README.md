@@ -1,4 +1,7 @@
 # aismartroute.github.io
+
+[Laporan](laporan.md)
+
 Aplikasi Smart route
 Frontend dashboard for AI-based smart routing system using GIS and LLM
 
